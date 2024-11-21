@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import {
   signInWithEmailAndPassword,
+  getMultiFactorResolver,
+  PhoneAuthProvider,
+  RecaptchaVerifier,
   signInWithPhoneNumber,
 } from "firebase/auth";
 import { auth } from "../firebase";
@@ -15,12 +18,25 @@ const SignIn = () => {
   const [isPhoneVerification, setIsPhoneVerification] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [error, setError] = useState("");
+  const [mfaResolver, setMfaResolver] = useState(null);
   const navigate = useNavigate();
 
   // Function to set up reCAPTCHA Enterprise
   const setupRecaptcha = async () => {
     try {
       console.log("Setting up reCAPTCHA...");
+      await new Promise((resolve) => {
+        if (window.grecaptcha) {
+          resolve();
+        } else {
+          const interval = setInterval(() => {
+            if (window.grecaptcha) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 100);
+        }
+      });
       const token = await window.grecaptcha.enterprise.execute(
         "6LcSH4YqAAAAAAWEIme1-CodffU3IZ-amzePRsKo",
         { action: "LOGIN" }
@@ -46,20 +62,37 @@ const SignIn = () => {
       setIsEmailVerified(true); // Email sign-in successful
       setIsPhoneVerification(true); // Show phone verification UI
     } catch (error) {
-      setError(error.message);
-      console.error("Error during sign-in:", error.message);
+      if (error.code === 'auth/multi-factor-auth-required') {
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+        setIsPhoneVerification(true); // Show phone verification UI
+      } else {
+        setError(error.message);
+        console.error("Error during sign-in:", error.message);
+      }
     }
   };
 
   // Handle phone number verification
   const handlePhoneVerification = async () => {
     try {
+      // Set up reCAPTCHA verifier for phone number verification
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        "recaptcha-container",
+        {
+          size: "invisible",
+          callback: (response) => {
+            console.log("reCAPTCHA verified successfully");
+          },
+        },
+        auth
+      );
+
       let formattedPhoneNumber = phoneNumber;
       if (!formattedPhoneNumber.startsWith("+216")) {
         formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
       }
       console.log("Phone Number to verify:", formattedPhoneNumber);
-
       const confirmationResult = await signInWithPhoneNumber(
         auth,
         formattedPhoneNumber,
@@ -77,8 +110,15 @@ const SignIn = () => {
   const handleVerifyCode = async () => {
     const confirmationResult = window.confirmationResult;
     try {
-      await confirmationResult.confirm(verificationCode);
-      console.log("Phone number verified!");
+      if (mfaResolver) {
+        const credential = PhoneAuthProvider.credential(window.verificationId, verificationCode);
+        const multiFactorAssertion = PhoneAuthProvider.assertion(credential);
+        await mfaResolver.resolveSignIn(multiFactorAssertion);
+        console.log("Phone number verified!");
+      } else {
+        await confirmationResult.confirm(verificationCode);
+        console.log("Phone number verified!");
+      }
       if (isEmailVerified) {
         navigate("/main");
       }
