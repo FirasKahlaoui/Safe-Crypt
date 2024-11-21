@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   signInWithEmailAndPassword,
   RecaptchaVerifier,
@@ -18,6 +18,7 @@ const SignIn = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  // Function to set up reCAPTCHA Enterprise
   const setupRecaptcha = () => {
     try {
       console.log("Setting up reCAPTCHA...");
@@ -31,9 +32,28 @@ const SignIn = () => {
             callback: (response) => {
               console.log("reCAPTCHA verified successfully");
             },
+            "expired-callback": () => {
+              console.log("reCAPTCHA expired");
+            },
           },
           auth // Ensure auth is correctly passed here
         );
+
+        // Use the provided reCAPTCHA Enterprise key
+        window.recaptchaVerifier.verify = async function (token) {
+          const enterpriseKey = "6LcSH4YqAAAAAAWEIme1-CodffU3IZ-amzePRsKo"; // Your provided reCAPTCHA Enterprise key
+          // Send token to backend for verification (optional)
+          try {
+            // Example: Pass the token to your server-side for additional validation if necessary.
+            // e.g., Axios POST request to verify the token on your backend server
+            console.log("Enterprise token:", token); // Log for testing
+            return token; // If needed, add verification logic here
+          } catch (error) {
+            console.error("Error in reCAPTCHA Enterprise verification:", error);
+            return null;
+          }
+        };
+
         window.recaptchaVerifier
           .render()
           .then(() => {
