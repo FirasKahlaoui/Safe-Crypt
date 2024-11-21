@@ -3,7 +3,6 @@ import {
   signInWithEmailAndPassword,
   getMultiFactorResolver,
   PhoneAuthProvider,
-  RecaptchaVerifier,
   signInWithPhoneNumber,
 } from "firebase/auth";
 import { auth } from "../firebase";
@@ -21,48 +20,15 @@ const SignIn = () => {
   const [mfaResolver, setMfaResolver] = useState(null);
   const navigate = useNavigate();
 
-  // Function to set up reCAPTCHA Enterprise
-  const setupRecaptcha = async () => {
-    try {
-      console.log("Setting up reCAPTCHA...");
-      await new Promise((resolve) => {
-        if (window.grecaptcha) {
-          resolve();
-        } else {
-          const interval = setInterval(() => {
-            if (window.grecaptcha) {
-              clearInterval(interval);
-              resolve();
-            }
-          }, 100);
-        }
-      });
-      const token = await window.grecaptcha.enterprise.execute(
-        "6LcSH4YqAAAAAAWEIme1-CodffU3IZ-amzePRsKo",
-        { action: "LOGIN" }
-      );
-      console.log("reCAPTCHA token:", token);
-      return token;
-    } catch (error) {
-      setError("reCAPTCHA setup failed. Please try again.");
-      console.error("Error setting up reCAPTCHA:", error.message);
-      return null;
-    }
-  };
-
   // Handle email and password sign-in
   const handleSignIn = async (e) => {
     e.preventDefault();
     try {
-      const token = await setupRecaptcha();
-      if (!token) {
-        throw new Error("reCAPTCHA verification failed");
-      }
       await signInWithEmailAndPassword(auth, email, password);
       setIsEmailVerified(true); // Email sign-in successful
       setIsPhoneVerification(true); // Show phone verification UI
     } catch (error) {
-      if (error.code === 'auth/multi-factor-auth-required') {
+      if (error.code === "auth/multi-factor-auth-required") {
         const resolver = getMultiFactorResolver(auth, error);
         setMfaResolver(resolver);
         setIsPhoneVerification(true); // Show phone verification UI
@@ -76,18 +42,6 @@ const SignIn = () => {
   // Handle phone number verification
   const handlePhoneVerification = async () => {
     try {
-      // Set up reCAPTCHA verifier for phone number verification
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: (response) => {
-            console.log("reCAPTCHA verified successfully");
-          },
-        },
-        auth
-      );
-
       let formattedPhoneNumber = phoneNumber;
       if (!formattedPhoneNumber.startsWith("+216")) {
         formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
@@ -95,8 +49,7 @@ const SignIn = () => {
       console.log("Phone Number to verify:", formattedPhoneNumber);
       const confirmationResult = await signInWithPhoneNumber(
         auth,
-        formattedPhoneNumber,
-        window.recaptchaVerifier
+        formattedPhoneNumber
       );
       window.confirmationResult = confirmationResult;
       console.log("Verification code sent!");
@@ -111,7 +64,10 @@ const SignIn = () => {
     const confirmationResult = window.confirmationResult;
     try {
       if (mfaResolver) {
-        const credential = PhoneAuthProvider.credential(window.verificationId, verificationCode);
+        const credential = PhoneAuthProvider.credential(
+          window.verificationId,
+          verificationCode
+        );
         const multiFactorAssertion = PhoneAuthProvider.assertion(credential);
         await mfaResolver.resolveSignIn(multiFactorAssertion);
         console.log("Phone number verified!");
@@ -169,7 +125,9 @@ const SignIn = () => {
         </form>
       ) : (
         <div>
-          <div id="recaptcha-container"></div>
+          <p className="text-white text-[20px] mb-[10px] font-semibold">
+            Enter your phone number to receive a verification code
+          </p>
           <input
             className="block w-[380px] h-[45px] rounded-lg mb-5 border-white mx-auto px-3 py-2 mt-2 text-black"
             type="tel"
