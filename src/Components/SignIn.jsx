@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   signInWithEmailAndPassword,
   getMultiFactorResolver,
   PhoneAuthProvider,
   signInWithPhoneNumber,
-  RecaptchaVerifier,
 } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -18,60 +17,46 @@ const SignIn = () => {
   const [isPhoneVerification, setIsPhoneVerification] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [error, setError] = useState("");
-  const [isRecaptchaReady, setIsRecaptchaReady] = useState(false); // Track if reCAPTCHA is ready to be used
   const [mfaResolver, setMfaResolver] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Initialize reCAPTCHA v2 widget here
-    const initializeRecaptcha = () => {
-      if (auth) {
-        window.recaptchaVerifier = new RecaptchaVerifier(
-          "recaptcha-container", // This will be the div ID where the reCAPTCHA widget is rendered
-          {
-            size: "normal", // Change to "normal" for visible reCAPTCHA
-            callback: (response) => {
-              console.log("reCAPTCHA solved:", response);
-              setIsRecaptchaReady(true); // reCAPTCHA is ready for phone verification
-            },
-            "expired-callback": () => {
-              console.warn("reCAPTCHA expired.");
-              setIsRecaptchaReady(false); // Set the flag back to false
-            },
-          },
-          auth
-        );
-        window.recaptchaVerifier.render().then((widgetId) => {
-          window.recaptchaWidgetId = widgetId;
-          console.log("reCAPTCHA widget rendered.");
-        });
-      } else {
-        console.error("Firebase auth object is not defined.");
-      }
-    };
-
-    // Initialize reCAPTCHA only if it's not already initialized
-    if (!window.recaptchaVerifier) {
-      initializeRecaptcha();
-    }
-  }, []);
-
-  const handlePhoneVerification = async () => {
-    if (!isRecaptchaReady) {
-      console.error("reCAPTCHA not solved or ready.");
-      return;
-    }
-
+  // Handle email and password sign-in
+  const handleSignIn = async (e) => {
+    e.preventDefault();
     try {
-      console.log("Starting phone verification...");
-      let formattedPhoneNumber = `+216${phoneNumber.replace(/^\+/, "")}`;
-      console.log("Formatted phone number:", formattedPhoneNumber);
+      console.log("Signing in with email and password...");
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      console.log("User signed in:", userCredential);
+      setIsEmailVerified(true); // Email sign-in successful
+      setIsPhoneVerification(true); // Show phone verification UI
+    } catch (error) {
+      if (error.code === "auth/multi-factor-auth-required") {
+        console.log("Multi-factor authentication required...");
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+        setIsPhoneVerification(true); // Show phone verification UI
+      } else {
+        setError(error.message);
+        console.error("Error during sign-in:", error.message);
+      }
+    }
+  };
 
-      const appVerifier = window.recaptchaVerifier;
+  // Handle phone number verification
+  const handlePhoneVerification = async () => {
+    try {
+      let formattedPhoneNumber = phoneNumber;
+      if (!formattedPhoneNumber.startsWith("+216")) {
+        formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
+      }
+      console.log("Phone Number to verify:", formattedPhoneNumber);
       const confirmationResult = await signInWithPhoneNumber(
         auth,
-        formattedPhoneNumber,
-        appVerifier
+        formattedPhoneNumber
       );
       window.confirmationResult = confirmationResult;
       console.log("Verification code sent!");
@@ -81,29 +66,11 @@ const SignIn = () => {
     }
   };
 
-  const handleSignIn = async (e) => {
-    e.preventDefault();
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log("Email sign-in successful.");
-      setIsEmailVerified(true);
-      setIsPhoneVerification(true);
-    } catch (error) {
-      if (error.code === "auth/multi-factor-auth-required") {
-        const resolver = getMultiFactorResolver(auth, error);
-        console.log("Multi-factor auth required. Resolver:", resolver);
-        setMfaResolver(resolver);
-        setIsPhoneVerification(true);
-      } else {
-        setError(error.message);
-        console.error("Error during sign-in:", error.message);
-      }
-    }
-  };
-
+  // Handle the verification code confirmation
   const handleVerifyCode = async () => {
     const confirmationResult = window.confirmationResult;
     try {
+      console.log("Verifying code...");
       if (mfaResolver) {
         const credential = PhoneAuthProvider.credential(
           window.verificationId,
@@ -111,7 +78,7 @@ const SignIn = () => {
         );
         const multiFactorAssertion = PhoneAuthProvider.assertion(credential);
         await mfaResolver.resolveSignIn(multiFactorAssertion);
-        console.log("Phone number verified!");
+        console.log("Phone number verified with MFA!");
       } else {
         await confirmationResult.confirm(verificationCode);
         console.log("Phone number verified!");
@@ -179,7 +146,6 @@ const SignIn = () => {
           />
           <button
             onClick={handlePhoneVerification}
-            disabled={!isRecaptchaReady} // Disable button if reCAPTCHA isn't solved
             className="w-[380px] h-12 bg-customBlue rounded-lg border-none text-white text-lg font-bold mt-[3px]"
           >
             Send Code
@@ -200,7 +166,6 @@ const SignIn = () => {
           </button>
         </div>
       )}
-      <div id="recaptcha-container"></div>
     </div>
   );
 };
