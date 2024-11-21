@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
@@ -18,22 +18,32 @@ const SignIn = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  // Initialize reCAPTCHA verifier
+  useEffect(() => {
+    if (
+      window.location.hostname === "localhost" ||
+      process.env.REACT_APP_ENV === "development"
+    ) {
+      window.firebase.auth().settings.appVerificationDisabledForTesting = true;
+    }
+    if (window.grecaptcha) {
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        "recaptcha-container",
+        {
+          size: "invisible",
+          callback: (response) => {
+            console.log("reCAPTCHA verified successfully");
+          },
+        },
+        auth
+      );
+    }
+  }, []);
+
   // Function to set up reCAPTCHA Enterprise
   const setupRecaptcha = async () => {
     try {
       console.log("Setting up reCAPTCHA...");
-      await new Promise((resolve) => {
-        if (window.grecaptcha) {
-          resolve();
-        } else {
-          const interval = setInterval(() => {
-            if (window.grecaptcha) {
-              clearInterval(interval);
-              resolve();
-            }
-          }, 100);
-        }
-      });
       const token = await window.grecaptcha.enterprise.execute(
         "6LcSH4YqAAAAAAWEIme1-CodffU3IZ-amzePRsKo",
         { action: "LOGIN" }
@@ -41,7 +51,7 @@ const SignIn = () => {
       console.log("reCAPTCHA token:", token);
       return token;
     } catch (error) {
-      setError(error.message);
+      setError("reCAPTCHA setup failed. Please try again.");
       console.error("Error setting up reCAPTCHA:", error.message);
       return null;
     }
@@ -67,23 +77,12 @@ const SignIn = () => {
   // Handle phone number verification
   const handlePhoneVerification = async () => {
     try {
-      // Set up reCAPTCHA verifier for phone number verification
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: (response) => {
-            console.log("reCAPTCHA verified successfully");
-          },
-        },
-        auth
-      );
+      const formattedPhoneNumber = phoneNumber.startsWith("+216")
+        ? phoneNumber
+        : `+216${phoneNumber.replace(/^\+/, "")}`;
 
-      let formattedPhoneNumber = phoneNumber;
-      if (!formattedPhoneNumber.startsWith("+216")) {
-        formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
-      }
       console.log("Phone Number to verify:", formattedPhoneNumber);
+
       const confirmationResult = await signInWithPhoneNumber(
         auth,
         formattedPhoneNumber,
