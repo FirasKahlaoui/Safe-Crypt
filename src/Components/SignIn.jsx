@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
+  RecaptchaVerifier,
 } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -65,8 +66,19 @@ const SignIn = () => {
 
   // Handle phone number verification
   const handlePhoneVerification = async () => {
-    const appVerifier = window.recaptchaVerifier;
     try {
+      // Set up reCAPTCHA verifier for phone number verification
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        "recaptcha-container",
+        {
+          size: "invisible",
+          callback: (response) => {
+            console.log("reCAPTCHA verified successfully");
+          },
+        },
+        auth
+      );
+
       let formattedPhoneNumber = phoneNumber;
       if (!formattedPhoneNumber.startsWith("+216")) {
         formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
@@ -75,7 +87,7 @@ const SignIn = () => {
       const confirmationResult = await signInWithPhoneNumber(
         auth,
         formattedPhoneNumber,
-        appVerifier
+        window.recaptchaVerifier
       );
       window.confirmationResult = confirmationResult;
       console.log("Verification code sent!");
