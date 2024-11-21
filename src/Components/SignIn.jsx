@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   signInWithEmailAndPassword,
   RecaptchaVerifier,
@@ -41,7 +41,7 @@ const SignIn = () => {
 
         // Use the provided reCAPTCHA Enterprise key
         window.recaptchaVerifier.verify = async function (token) {
-          const enterpriseKey = "6LcSH4YqAAAAAAWEIme1-CodffU3IZ-amzePRsKo"; // Your provided reCAPTCHA Enterprise key
+          // Your provided reCAPTCHA Enterprise key
           // Send token to backend for verification (optional)
           try {
             // Example: Pass the token to your server-side for additional validation if necessary.
