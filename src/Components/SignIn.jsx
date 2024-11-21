@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   signInWithEmailAndPassword,
-  RecaptchaVerifier,
   signInWithPhoneNumber,
 } from "firebase/auth";
 import { auth } from "../firebase";
@@ -19,54 +18,31 @@ const SignIn = () => {
   const navigate = useNavigate();
 
   // Function to set up reCAPTCHA Enterprise
-  const setupRecaptcha = () => {
+  const setupRecaptcha = async () => {
     try {
       console.log("Setting up reCAPTCHA...");
-
-      // Ensure that recaptchaVerifier is not already set up
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(
-          "recaptcha-container", // The HTML element that will contain the reCAPTCHA
-          {
-            size: "invisible", // Invisible reCAPTCHA
-            callback: (response) => {
-              console.log("reCAPTCHA verified successfully");
-            },
-            "expired-callback": () => {
-              console.log("reCAPTCHA expired");
-            },
-          },
-          auth // Ensure auth is correctly passed here
-        );
-
-        // Use the provided reCAPTCHA Enterprise key
-        window.recaptchaVerifier.verify = async function (token) {
-          // Your provided reCAPTCHA Enterprise key
-          // Send token to backend for verification (optional)
-          try {
-            // Example: Pass the token to your server-side for additional validation if necessary.
-            // e.g., Axios POST request to verify the token on your backend server
-            console.log("Enterprise token:", token); // Log for testing
-            return token; // If needed, add verification logic here
-          } catch (error) {
-            console.error("Error in reCAPTCHA Enterprise verification:", error);
-            return null;
-          }
-        };
-
-        window.recaptchaVerifier
-          .render()
-          .then(() => {
-            console.log("reCAPTCHA setup complete");
-          })
-          .catch((error) => {
-            setError(error.message);
-            console.error("Error rendering reCAPTCHA:", error.message);
-          });
-      }
+      await new Promise((resolve) => {
+        if (window.grecaptcha) {
+          resolve();
+        } else {
+          const interval = setInterval(() => {
+            if (window.grecaptcha) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 100);
+        }
+      });
+      const token = await window.grecaptcha.enterprise.execute(
+        "6LcSH4YqAAAAAAWEIme1-CodffU3IZ-amzePRsKo",
+        { action: "LOGIN" }
+      );
+      console.log("reCAPTCHA token:", token);
+      return token;
     } catch (error) {
       setError(error.message);
       console.error("Error setting up reCAPTCHA:", error.message);
+      return null;
     }
   };
 
@@ -74,9 +50,12 @@ const SignIn = () => {
   const handleSignIn = async (e) => {
     e.preventDefault();
     try {
+      const token = await setupRecaptcha();
+      if (!token) {
+        throw new Error("reCAPTCHA verification failed");
+      }
       await signInWithEmailAndPassword(auth, email, password);
       setIsEmailVerified(true); // Email sign-in successful
-      setupRecaptcha(); // Initialize reCAPTCHA for phone verification
       setIsPhoneVerification(true); // Show phone verification UI
     } catch (error) {
       setError(error.message);
@@ -88,16 +67,11 @@ const SignIn = () => {
   const handlePhoneVerification = async () => {
     const appVerifier = window.recaptchaVerifier;
     try {
-      // Ensure phone number is correctly formatted with the country code (+216)
       let formattedPhoneNumber = phoneNumber;
-
-      // If the phone number doesn't start with '+216', add the country code
       if (!formattedPhoneNumber.startsWith("+216")) {
         formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
       }
-
-      console.log("Phone Number to verify:", formattedPhoneNumber); // Log the phone number being verified
-
+      console.log("Phone Number to verify:", formattedPhoneNumber);
       const confirmationResult = await signInWithPhoneNumber(
         auth,
         formattedPhoneNumber,
