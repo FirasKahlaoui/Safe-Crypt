@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
-  RecaptchaVerifier,
 } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -17,28 +16,6 @@ const SignIn = () => {
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-
-  // Initialize reCAPTCHA verifier
-  useEffect(() => {
-    if (
-      window.location.hostname === "localhost" ||
-      process.env.REACT_APP_ENV === "development"
-    ) {
-      window.firebase.auth().settings.appVerificationDisabledForTesting = true;
-    }
-    if (window.grecaptcha) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: (response) => {
-            console.log("reCAPTCHA verified successfully");
-          },
-        },
-        auth
-      );
-    }
-  }, []);
 
   // Function to set up reCAPTCHA Enterprise
   const setupRecaptcha = async () => {
@@ -77,10 +54,10 @@ const SignIn = () => {
   // Handle phone number verification
   const handlePhoneVerification = async () => {
     try {
-      const formattedPhoneNumber = phoneNumber.startsWith("+216")
-        ? phoneNumber
-        : `+216${phoneNumber.replace(/^\+/, "")}`;
-
+      let formattedPhoneNumber = phoneNumber;
+      if (!formattedPhoneNumber.startsWith("+216")) {
+        formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
+      }
       console.log("Phone Number to verify:", formattedPhoneNumber);
 
       const confirmationResult = await signInWithPhoneNumber(
