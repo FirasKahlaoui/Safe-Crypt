@@ -15,7 +15,6 @@ const SignIn = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [isPhoneVerification, setIsPhoneVerification] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -55,11 +54,7 @@ const SignIn = () => {
   const handleSignIn = async (e) => {
     e.preventDefault();
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      await signInWithEmailAndPassword(auth, email, password);
       setIsEmailVerified(true); // Email sign-in successful
       setupRecaptcha(); // Initialize reCAPTCHA for phone verification
       setIsPhoneVerification(true); // Show phone verification UI
@@ -102,7 +97,6 @@ const SignIn = () => {
     try {
       await confirmationResult.confirm(verificationCode);
       console.log("Phone number verified!");
-      setIsPhoneVerified(true); // Mark phone verification as successful
       if (isEmailVerified) {
         navigate("/main");
       }
