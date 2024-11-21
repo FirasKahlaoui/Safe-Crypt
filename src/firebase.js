@@ -3,19 +3,20 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Firebase configuration object (replace with your own credentials)
+// Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCrtexwhqGjqNi-QCmEgClqzZtGm_KZf_Q",
-    authDomain: "safecrypt-8eb4d.firebaseapp.com",
-    projectId: "safecrypt-8eb4d",
-    storageBucket: "safecrypt-8eb4d.firebasestorage.app",
-    messagingSenderId: "1031860567904",
-    appId: "1:1031860567904:web:b94eefb4fa6451f2e92805"
-  };
+  apiKey: "AIzaSyCKvVaBPx-ExgIyzZd90oH9gBjefvTQRcM",
+  authDomain: "test-db8b8.firebaseapp.com",
+  projectId: "test-db8b8",
+  storageBucket: "test-db8b8.firebasestorage.app",
+  messagingSenderId: "210720540943",
+  appId: "1:210720540943:web:139462a95934992e1bd67a",
+};
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Export Firebase services
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
-
