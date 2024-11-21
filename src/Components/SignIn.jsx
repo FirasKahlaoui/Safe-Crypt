@@ -4,6 +4,7 @@ import {
   getMultiFactorResolver,
   PhoneAuthProvider,
   signInWithPhoneNumber,
+  RecaptchaVerifier,
 } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -39,17 +40,36 @@ const SignIn = () => {
     }
   };
 
+  // Initialize reCAPTCHA verifier
+  const setupRecaptcha = () => {
+    window.recaptchaVerifier = new RecaptchaVerifier(
+      "recaptcha-container",
+      {
+        size: "invisible",
+        callback: (response) => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+          handlePhoneVerification();
+        },
+      },
+      auth
+    );
+  };
+
   // Handle phone number verification
   const handlePhoneVerification = async () => {
     try {
+      setupRecaptcha();
       let formattedPhoneNumber = phoneNumber;
       if (!formattedPhoneNumber.startsWith("+216")) {
         formattedPhoneNumber = `+216${formattedPhoneNumber.replace(/^\+/, "")}`;
       }
       console.log("Phone Number to verify:", formattedPhoneNumber);
+
+      const appVerifier = window.recaptchaVerifier;
       const confirmationResult = await signInWithPhoneNumber(
         auth,
-        formattedPhoneNumber
+        formattedPhoneNumber,
+        appVerifier
       );
       window.confirmationResult = confirmationResult;
       console.log("Verification code sent!");
@@ -158,6 +178,7 @@ const SignIn = () => {
           </button>
         </div>
       )}
+      <div id="recaptcha-container"></div>
     </div>
   );
 };
